@@ -2,193 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fakebook</title>
+  <title>Finance Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { background: #f0f2f5; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 20px; color: #333; }
+    .container { max-width: 900px; margin: auto; display: flex; flex-direction: column; gap: 20px; }
 
-    body {
-      background: #f0f2f5;
-    }
+    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
+    input, select { padding: 8px; margin-right: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    button { padding: 8px 12px; border-radius: 6px; border: none; background: #1877f2; color: white; cursor: pointer; }
+    button:hover { background: #145dbf; }
 
-    /* Top navbar */
-    .navbar {
-      background: #1877f2;
-      color: white;
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
 
-    .navbar h1 {
-      font-size: 24px;
-    }
-
-    .navbar input {
-      width: 300px;
-      padding: 8px;
-      border-radius: 20px;
-      border: none;
-      outline: none;
-    }
-
-    /* Layout */
-    .container {
-      display: flex;
-      max-width: 1200px;
-      margin: 20px auto;
-      gap: 20px;
-    }
-
-    .sidebar {
-      width: 250px;
-    }
-
-    .sidebar div {
-      background: white;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      cursor: pointer;
-    }
-
-    .feed {
-      flex: 1;
-    }
-
-    .post-box {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-
-    .post-box textarea {
-      width: 100%;
-      border: none;
-      resize: none;
-      outline: none;
-      font-size: 16px;
-    }
-
-    .post {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-    }
-
-    .post h3 {
-      margin-bottom: 5px;
-    }
-
-    .post p {
-      margin: 10px 0;
-    }
-
-    .post-actions {
-      display: flex;
-      justify-content: space-around;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
-      color: #555;
-      cursor: pointer;
-    }
-
-    .rightbar {
-      width: 250px;
-    }
-
-    .rightbar div {
-      background: white;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-
-    footer {
-      text-align: center;
-      padding: 20px;
-      color: #777;
-    }
+    .networth { text-align: center; font-size: 1.5rem; color: #1877f2; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <!-- Navbar -->
-  <div class="navbar">
-    <h1>Fakebook</h1>
-    <input type="text" placeholder="Search Fakebook">
+<h1>My Finance Dashboard</h1>
+<div class="container">
+
+  <!-- Net Worth -->
+  <div class="card">
+    <div class="networth">Net Worth: $<span id="networth">0</span></div>
   </div>
 
-  <!-- Main layout -->
-  <div class="container">
+  <!-- Add Accounts -->
+  <div class="card">
+    <h2>Add Account</h2>
+    <input type="text" id="accountName" placeholder="Account name">
+    <input type="number" id="accountBalance" placeholder="Initial balance">
+    <button onclick="addAccount()">Add Account</button>
 
-    <!-- Left sidebar -->
-    <div class="sidebar">
-      <div>👤 Profile</div>
-      <div>📰 Feed</div>
-      <div>👥 Friends</div>
-      <div>📸 Photos</div>
-      <div>⚙️ Settings</div>
-    </div>
-
-    <!-- Feed -->
-    <div class="feed">
-
-      <div class="post-box">
-        <textarea rows="3" placeholder="What's on your mind?"></textarea>
-      </div>
-
-      <div class="post">
-        <h3>Your Name</h3>
-        <p>This is my first Fakebook post 😎</p>
-        <div class="post-actions">
-          <span>👍 Like</span>
-          <span>💬 Comment</span>
-          <span>↗ Share</span>
-        </div>
-      </div>
-
-      <div class="post">
-        <h3>Friend Name</h3>
-        <p>GitHub Pages is actually pretty cool.</p>
-        <div class="post-actions">
-          <span>👍 Like</span>
-          <span>💬 Comment</span>
-          <span>↗ Share</span>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Right sidebar -->
-    <div class="rightbar">
-      <div>
-        <strong>Contacts</strong>
-        <p>• Alice</p>
-        <p>• Bob</p>
-        <p>• Charlie</p>
-      </div>
-
-      <div>
-        <strong>Sponsored</strong>
-        <p>Build websites for free 🚀</p>
-      </div>
-    </div>
-
+    <table id="accountsTable">
+      <thead><tr><th>Account</th><th>Balance</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
-  <footer>
-    © 2026 Fakebook • This is a demo UI only
-  </footer>
+  <!-- Add Transaction -->
+  <div class="card">
+    <h2>Add Transaction</h2>
+    <select id="transactionAccount"></select>
+    <select id="transactionType">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+      <option value="debt">Debt</option>
+    </select>
+    <input type="number" id="transactionAmount" placeholder="Amount">
+    <button onclick="addTransaction()">Add</button>
 
-</body>
-</html>
+    <table id="transactionsTable">
+      <thead><tr><th>Account</th><th>Type</th><th>Amount</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
+  let transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+
+  function updateAccounts() {
+    const tbody = document.querySelector('#accountsTable tbody');
+    const select = document.getElementById('transactionAccount');
+    tbody.innerHTML = '';
+    select.innerHTML = '';
+    accounts.forEach(acc => {
+      tbody.innerHTML += `<tr><td>${acc.name}</td><td>$${acc.balance.toFixed(2)}</td></tr>`;
+      select.innerHTML += `<option value="${acc.name}">${acc.name}</option>`;
+    });
+    updateNetWorth();
+  }
+
+  function updateTransactions() {
+    const tbody = document.querySelector('#transactionsTable tbody');
+    tbody.innerHTML = '';
+    transactions.forEach(tx => {
+      tbody.innerHTML += `<tr><td>${tx.account}</td><td>${tx.type}</td><td>$${tx.amount.toFixed(2)}</td></tr>`;
+    });
+  }
+
+  function updateNetWorth() {
+    const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    document.getElementById('networth').textContent = total.toFixed(2);
+  }
+
+  function addAccount() {
+    const name = document.getElementById('accountName').value.trim();
+    const balance = parseFloat(document.getElementById('accountBalance
