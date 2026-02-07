@@ -4,16 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Finance Dashboard</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial}
 body{background:#f0f2f5;padding:20px}
 h1{text-align:center;margin-bottom:20px}
-.container{max-width:1000px;margin:auto;display:flex;flex-direction:column;gap:20px}
+.container{max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:20px}
 .card{background:#fff;padding:20px;border-radius:10px;box-shadow:0 3px 8px rgba(0,0,0,.1)}
-input,select{padding:8px;border-radius:6px;border:1px solid #ccc;margin-right:6px}
+input,select{padding:8px;border-radius:6px;border:1px solid #ccc;margin:4px}
 button{padding:8px 12px;border:none;border-radius:6px;background:#1877f2;color:#fff;cursor:pointer}
 button:hover{background:#145dbf}
 table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -22,6 +21,7 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
 .small{font-size:.85rem;color:#666}
 .delete-btn{background:#ff4b5c}
 .delete-btn:hover{background:#c0392b}
+.warn{color:red;font-weight:bold;margin-top:10px}
 </style>
 </head>
 
@@ -32,9 +32,13 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
 <div class="container">
 
 <div class="card">
-  <div class="networth">Total Net Worth (PHP): ₱<span id="networth">0</span></div>
+  <div class="networth">Total Net Worth in PHP: ₱<span id="networth">0</span></div>
+  <div class="small">USD → PHP rate:
+    <input id="rate" type="number" value="56" style="width:90px">
+  </div>
 </div>
 
+<!-- ACCOUNTS -->
 <div class="card">
   <h2>Add Account</h2>
   <input id="accountName" placeholder="Account name">
@@ -51,6 +55,7 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
   </table>
 </div>
 
+<!-- TRANSACTION -->
 <div class="card">
   <h2>Add Transaction</h2>
 
@@ -76,9 +81,6 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
     <option value="USD">USD</option>
   </select>
 
-  <span class="small">USD → PHP rate:</span>
-  <input id="rate" type="number" value="56">
-
   <button onclick="addTransaction()">Add</button>
 
   <table>
@@ -92,6 +94,35 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
   </table>
 </div>
 
+<!-- TRANSFER -->
+<div class="card">
+  <h2>Transfer Between Accounts</h2>
+  From <select id="fromAcc"></select>
+  To <select id="toAcc"></select>
+  <input id="transferAmount" type="number" placeholder="Amount">
+  <select id="transferCurrency">
+    <option value="PHP">PHP</option>
+    <option value="USD">USD</option>
+  </select>
+  <button onclick="transfer()">Transfer</button>
+</div>
+
+<!-- BUDGET -->
+<div class="card">
+  <h2>Monthly Budget</h2>
+  <select id="budgetCategory">
+    <option>Food</option>
+    <option>Rent</option>
+    <option>Investment</option>
+    <option>Entertainment</option>
+    <option>Other</option>
+  </select>
+  <input id="budgetAmount" type="number" placeholder="PHP">
+  <button onclick="setBudget()">Save</button>
+  <div id="budgetWarn" class="warn"></div>
+</div>
+
+<!-- CHARTS -->
 <div class="card">
   <h2>Income vs Expense</h2>
   <canvas id="lineChart"></canvas>
@@ -105,7 +136,6 @@ th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
 </div>
 
 <script>
-/* ---------------- PASSWORD (still local only) ---------------- */
 const PASSWORD="2761";
 if(prompt("Enter password")!==PASSWORD){
   document.body.innerHTML="<h2 style='text-align:center;margin-top:50px'>Access Denied</h2>";
@@ -114,68 +144,123 @@ if(prompt("Enter password")!==PASSWORD){
 /* ---------------- STORAGE ---------------- */
 let accounts=JSON.parse(localStorage.getItem("accounts")||"[]");
 let transactions=JSON.parse(localStorage.getItem("transactions")||"[]");
+let budgets=JSON.parse(localStorage.getItem("budgets")||"{}");
 
-/* ---------------- HELPERS ---------------- */
-const peso=v=>v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const peso=v=>v.toLocaleString(undefined,{minimumFractionDigits:2});
 
-/* ---------------- ACCOUNTS ---------------- */
+/* ---------------- ACCOUNT ---------------- */
 function addAccount(){
   const name=accountName.value.trim();
   const balance=parseFloat(accountBalance.value);
   const currency=accountCurrency.value;
 
-  if(!name||isNaN(balance)) return alert("Enter valid data");
-  if(accounts.find(a=>a.name===name)) return alert("Account already exists");
+  if(!name||isNaN(balance)) return alert("Invalid");
+  if(accounts.find(a=>a.name===name)) return alert("Duplicate");
 
   accounts.push({name,balance,currency});
-  save();
+  save(); render();
   accountName.value=""; accountBalance.value="";
-  render();
 }
 
-/* ---------------- TRANSACTIONS ---------------- */
+/* ---------------- TRANSACTION ---------------- */
 function addTransaction(){
-  const accountNameSel=transactionAccount.value;
+  const accName=transactionAccount.value;
   const type=transactionType.value;
   const category=transactionCategory.value;
   const amount=parseFloat(transactionAmount.value);
   const currency=transactionCurrency.value;
   const rate=parseFloat(document.getElementById("rate").value);
 
-  if(!accountNameSel||isNaN(amount)) return alert("Invalid data");
+  if(!accName||isNaN(amount)) return;
 
-  const acc=accounts.find(a=>a.name===accountNameSel);
-  if(!acc) return alert("Account missing");
+  const acc=accounts.find(a=>a.name===accName);
+  if(!acc) return;
 
-  let finalAmount=amount;
+  let final=amount;
+  if(currency==="USD" && acc.currency==="PHP") final=amount*rate;
+  if(currency==="PHP" && acc.currency==="USD") final=amount/rate;
 
-  // convert if different currency
-  if(currency==="USD" && acc.currency==="PHP") finalAmount=amount*rate;
-  if(currency==="PHP" && acc.currency==="USD") finalAmount=amount/rate;
-
-  if(type==="expense") acc.balance-=finalAmount;
-  else acc.balance+=finalAmount;
+  if(type==="expense") acc.balance-=final;
+  else acc.balance+=final;
 
   transactions.push({
     id:Date.now(),
-    account:accountNameSel,
-    type,category,
-    amount,
-    currency,
-    rate,
+    account:accName,type,category,
+    amount,currency,rate,
     date:new Date()
   });
 
-  save();
+  save(); render();
+  checkBudget();
   transactionAmount.value="";
-  render();
 }
 
 function deleteTx(id){
   transactions=transactions.filter(t=>t.id!==id);
   rebuildBalances();
-  save();
-  render();
+  save(); render();
+}
+
+/* ---------------- TRANSFER ---------------- */
+function transfer(){
+  const from=fromAcc.value;
+  const to=toAcc.value;
+  const amount=parseFloat(transferAmount.value);
+  const currency=transferCurrency.value;
+  const rate=parseFloat(document.getElementById("rate").value);
+
+  if(from===to||isNaN(amount)) return;
+
+  const aFrom=accounts.find(a=>a.name===from);
+  const aTo=accounts.find(a=>a.name===to);
+  if(!aFrom||!aTo) return;
+
+  let minus=amount, plus=amount;
+
+  if(currency==="USD" && aFrom.currency==="PHP") minus=amount*rate;
+  if(currency==="PHP" && aFrom.currency==="USD") minus=amount/rate;
+
+  if(currency==="USD" && aTo.currency==="PHP") plus=amount*rate;
+  if(currency==="PHP" && aTo.currency==="USD") plus=amount/rate;
+
+  aFrom.balance-=minus;
+  aTo.balance+=plus;
+
+  save(); render();
+}
+
+/* ---------------- BUDGET ---------------- */
+function setBudget(){
+  const cat=budgetCategory.value;
+  const amt=parseFloat(budgetAmount.value);
+  if(isNaN(amt)) return;
+  budgets[cat]=amt;
+  localStorage.setItem("budgets",JSON.stringify(budgets));
+  alert("Saved");
+}
+
+function checkBudget(){
+  const rate=parseFloat(document.getElementById("rate").value);
+  const now=new Date();
+  const m=now.getMonth(), y=now.getFullYear();
+  const spent={};
+
+  transactions.forEach(t=>{
+    const d=new Date(t.date);
+    if(d.getMonth()!==m||d.getFullYear()!==y) return;
+    if(t.type!=="expense") return;
+
+    let amt=t.amount;
+    if(t.currency==="USD") amt*=rate;
+    spent[t.category]=(spent[t.category]||0)+amt;
+  });
+
+  budgetWarn.innerHTML="";
+  Object.keys(budgets).forEach(c=>{
+    if(spent[c]>budgets[c]){
+      budgetWarn.innerHTML+=`⚠ ${c} exceeded! `;
+    }
+  });
 }
 
 /* ---------------- REBUILD ---------------- */
@@ -184,11 +269,9 @@ function rebuildBalances(){
   transactions.forEach(t=>{
     const acc=accounts.find(a=>a.name===t.account);
     if(!acc) return;
-
     let amt=t.amount;
     if(t.currency==="USD" && acc.currency==="PHP") amt*=t.rate;
     if(t.currency==="PHP" && acc.currency==="USD") amt/=t.rate;
-
     if(t.type==="expense") acc.balance-=amt;
     else acc.balance+=amt;
   });
@@ -196,35 +279,26 @@ function rebuildBalances(){
 
 /* ---------------- RENDER ---------------- */
 function render(){
-  renderAccounts();
-  renderTransactions();
-  updateNetWorth();
-  updateCharts();
-}
-
-function renderAccounts(){
   accountsBody.innerHTML="";
   transactionAccount.innerHTML="";
+  fromAcc.innerHTML="";
+  toAcc.innerHTML="";
 
   accounts.forEach(a=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${a.name}</td><td>${a.currency}</td><td>${a.currency==="PHP"?"₱":"$"}${peso(a.balance)}</td>`;
     accountsBody.appendChild(tr);
 
-    const opt=document.createElement("option");
-    opt.value=a.name;
-    opt.textContent=a.name;
-    transactionAccount.appendChild(opt);
+    [transactionAccount,fromAcc,toAcc].forEach(sel=>{
+      const o=document.createElement("option");
+      o.value=a.name; o.textContent=a.name;
+      sel.appendChild(o);
+    });
   });
-}
 
-function renderTransactions(){
   transactionsBody.innerHTML="";
   if(!transactions.length){
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td colspan="5" class="small">No transactions</td>`;
-    transactionsBody.appendChild(tr);
-    return;
+    transactionsBody.innerHTML=`<tr><td colspan="5" class="small">No transactions</td></tr>`;
   }
 
   transactions.forEach(t=>{
@@ -238,9 +312,12 @@ function renderTransactions(){
     `;
     transactionsBody.appendChild(tr);
   });
+
+  updateNetWorth();
+  updateCharts();
 }
 
-/* ---------------- NET WORTH in PHP ---------------- */
+/* ---------------- NET WORTH PHP ---------------- */
 function updateNetWorth(){
   const rate=parseFloat(document.getElementById("rate").value);
   let total=0;
@@ -253,8 +330,7 @@ function updateNetWorth(){
 
 /* ---------------- CHARTS ---------------- */
 function updateCharts(){
-  const monthly={};
-  const cat={};
+  const monthly={}, cat={};
 
   transactions.forEach(t=>{
     const m=new Date(t.date).toLocaleString('default',{month:'short',year:'numeric'});
@@ -283,10 +359,7 @@ function updateCharts(){
   if(window.pc) pc.destroy();
   window.pc=new Chart(ctx2,{
     type:'pie',
-    data:{
-      labels:Object.keys(cat),
-      datasets:[{data:Object.values(cat)}]
-    }
+    data:{labels:Object.keys(cat),datasets:[{data:Object.values(cat)}]}
   });
 }
 
@@ -296,7 +369,6 @@ function save(){
   localStorage.setItem("transactions",JSON.stringify(transactions));
 }
 
-/* ---------------- INIT ---------------- */
 render();
 </script>
 
