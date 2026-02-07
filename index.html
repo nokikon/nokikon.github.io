@@ -12,8 +12,8 @@ h2{margin-bottom:8px;font-size:16px;}
 input,select,button{padding:6px;margin:3px;font-size:14px;}
 button{background:#1877f2;color:white;border:none;border-radius:6px;cursor:pointer;}
 button:hover{background:#145dbf;}
-.small{font-size:12px;color:gray;}
 .wallet-item{display:flex;justify-content:space-between;margin-bottom:4px;}
+.small{font-size:12px;color:gray;}
 </style>
 </head>
 
@@ -69,7 +69,6 @@ button:hover{background:#145dbf;}
 </select>
 
 <br>
-
 📅 <input type="date" id="txDate">
 
 🔁 
@@ -84,15 +83,31 @@ button:hover{background:#145dbf;}
 <button onclick="saveTransaction()">Save</button>
 </div>
 
+<!-- TRANSFER -->
+<div class="card">
+<h2>Transfer Between Wallets</h2>
+
+From:
+<select id="fromWallet"></select>
+
+To:
+<select id="toWallet"></select>
+
+<input id="transferAmount" type="number" placeholder="Amount PHP">
+
+📅 <input type="date" id="transferDate">
+
+<button onclick="makeTransfer()">Transfer</button>
+</div>
+
 <!-- FIREBASE -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
-  onSnapshot
+  getFirestore, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
+  onSnapshot, getDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* YOUR CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyC5Iysfx-S3N1HyCqxr_JCXIhRa2Ds-ELY",
   authDomain: "financial-management-too-88cd2.firebaseapp.com",
@@ -105,16 +120,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* GLOBAL */
-const USD_RATE = 56; // you can change anytime
+const USD_RATE = 56;
 
-/* ELEMENTS */
 const walletSelect=document.getElementById("walletSelect");
 const categorySelect=document.getElementById("category");
+const fromWallet=document.getElementById("fromWallet");
+const toWallet=document.getElementById("toWallet");
 
 /* LOAD WALLETS */
 onSnapshot(collection(db,"wallets"), snap=>{
   walletSelect.innerHTML="";
+  fromWallet.innerHTML="";
+  toWallet.innerHTML="";
+
   let total=0;
   const list=document.getElementById("walletList");
   list.innerHTML="";
@@ -124,6 +142,8 @@ onSnapshot(collection(db,"wallets"), snap=>{
     total+=data.balance||0;
 
     walletSelect.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
+    fromWallet.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
+    toWallet.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
 
     list.innerHTML+=`
     <div class="wallet-item">
@@ -148,13 +168,10 @@ onSnapshot(collection(db,"categories"), snap=>{
 
 /* ADD WALLET */
 window.addWallet = async ()=>{
-  let name=document.getElementById("newWallet").value;
-  let bal=parseFloat(document.getElementById("startBalance").value)||0;
+  let name=newWallet.value;
+  let bal=parseFloat(startBalance.value)||0;
   if(!name) return;
-  await updateDoc(doc(db,"wallets",name),{balance:bal}).catch(async()=>{
-    await addDoc(collection(db,"wallets"),{});
-    await updateDoc(doc(db,"wallets",name),{balance:bal});
-  });
+  await setDoc(doc(db,"wallets",name),{balance:bal});
   newWallet.value=""; startBalance.value="";
 };
 
@@ -167,7 +184,7 @@ window.deleteWallet = async (id)=>{
 window.addCategory = async ()=>{
   let name=newCategory.value;
   if(!name) return;
-  await updateDoc(doc(db,"categories",name),{});
+  await setDoc(doc(db,"categories",name),{});
   newCategory.value="";
 };
 
@@ -183,28 +200,52 @@ window.saveTransaction = async ()=>{
   let cat    = categorySelect.value;
   let amt    = parseFloat(amount.value);
   let curr   = currency.value;
-  let txDate = document.getElementById("txDate").value;
-  let repeat = document.getElementById("repeat").value;
+  let txDate = txDateInput.value;
+  let repeat = repeatSelect.value;
 
   if(isNaN(amt)) return;
-
   if(curr==="USD") amt*=USD_RATE;
 
   const finalDate = txDate ? new Date(txDate) : new Date();
 
   const ref = doc(db,"wallets",wallet);
-
-  onSnapshot(ref, async snap=>{
-    let bal=snap.data().balance||0;
-    bal = type==="income" ? bal+amt : bal-amt;
-    await updateDoc(ref,{balance:bal});
-  },{once:true});
+  const snap = await getDoc(ref);
+  let bal=snap.data().balance||0;
+  bal = type==="income" ? bal+amt : bal-amt;
+  await updateDoc(ref,{balance:bal});
 
   await addDoc(collection(db,"transactions"),{
     wallet,type,category:cat,amount:amt,currency:curr,date:finalDate,repeat
   });
 
   amount.value="";
+};
+
+/* TRANSFER */
+window.makeTransfer = async ()=>{
+  let from=fromWallet.value;
+  let to=toWallet.value;
+  let amt=parseFloat(transferAmount.value);
+  if(isNaN(amt)||from===to) return;
+
+  const fromRef=doc(db,"wallets",from);
+  const toRef=doc(db,"wallets",to);
+
+  const f=await getDoc(fromRef);
+  const t=await getDoc(toRef);
+
+  await updateDoc(fromRef,{balance:(f.data().balance||0)-amt});
+  await updateDoc(toRef,{balance:(t.data().balance||0)+amt});
+
+  await addDoc(collection(db,"transactions"),{
+    wallet:from,
+    type:"transfer",
+    category:"transfer",
+    amount:amt,
+    date:new Date()
+  });
+
+  transferAmount.value="";
 };
 </script>
 
