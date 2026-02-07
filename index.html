@@ -2,37 +2,81 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Finance App</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finance Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
-body{font-family:Arial;background:#f4f6f8;margin:10px;}
-.card{background:white;padding:12px;margin-bottom:10px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.1);}
-h2{margin-bottom:8px;font-size:16px;}
-input,select,button{padding:6px;margin:3px;font-size:14px;}
-button{background:#1877f2;color:white;border:none;border-radius:6px;cursor:pointer;}
-button:hover{background:#145dbf;}
-.wallet-item{display:flex;justify-content:space-between;margin-bottom:4px;}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:#f4f6f8;
+  margin:0;
+}
+.header{
+  background:#1f2937;
+  color:white;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.card{
+  background:white;
+  margin:15px;
+  padding:15px;
+  border-radius:10px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+button{
+  background:#2563eb;
+  color:white;
+  border:none;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+}
+input{
+  padding:6px;
+  margin-right:5px;
+}
+.wallet{
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+  border-bottom:1px solid #eee;
+  padding-bottom:5px;
+}
 </style>
 </head>
 
 <body>
 
-<div id="authArea"></div>
-<div id="app" style="display:none;"></div>
+<div class="header">
+  <h2>💰 Finance Dashboard</h2>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<div class="card">
+  <h3>Total Net Worth (PHP)</h3>
+  <h2 id="netWorth">₱0</h2>
+</div>
+
+<div class="card">
+  <h3>Wallets</h3>
+
+  <input id="walletName" placeholder="Wallet name">
+  <input id="walletBalance" type="number" placeholder="Balance PHP">
+  <button onclick="addWallet()">Add</button>
+
+  <div id="walletList"></div>
+</div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, getDoc
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-import {
-  getAuth, createUserWithEmailAndPassword,
-  signInWithEmailAndPassword, onAuthStateChanged, signOut
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  getFirestore, collection, addDoc, onSnapshot,
+  doc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC5Iysfx-S3N1HyCqxr_JCXIhRa2Ds-ELY",
@@ -43,188 +87,67 @@ const firebaseConfig = {
   appId: "1:800320121078:web:419fc17ecc4323a90564d7"
 };
 
-const appFirebase = initializeApp(firebaseConfig);
-const db = getFirestore(appFirebase);
-const auth = getAuth(appFirebase);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const USD_RATE = 56;
+let currentUser=null;
 
-const authArea=document.getElementById("authArea");
-const app=document.getElementById("app");
-
-
-// ================= AUTH SCREEN =================
-function showAuth(){
-  authArea.innerHTML=`
-  <div class="card">
-    <h2>Login / Register</h2>
-    <input id="email" placeholder="Email"><br>
-    <input id="pass" type="password" placeholder="Password"><br>
-    <button onclick="login()">Login</button>
-    <button onclick="register()">Register</button>
-  </div>`;
-}
-
-window.login=()=>{
-  signInWithEmailAndPassword(auth,email.value,pass.value);
-};
-
-window.register=()=>{
-  createUserWithEmailAndPassword(auth,email.value,pass.value);
-};
-
-
-// ================= APP =================
-function loadApp(user){
-  authArea.innerHTML="";
-  app.style.display="block";
-
-  app.innerHTML=`
-  <div class="topbar">
-    <h1>💰 Finance Dashboard</h1>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <div class="card">
-  <h2>Total Net Worth (PHP)</h2>
-  <div id="total">0</div>
-  </div>
-
-  <div class="card">
-  <h2>Wallets</h2>
-  <input id="newWallet" placeholder="Wallet name">
-  <input id="startBalance" type="number" placeholder="Balance PHP">
-  <button onclick="addWallet()">Add</button>
-  <div id="walletList"></div>
-  </div>
-
-  <div class="card">
-  <h2>Categories</h2>
-  <input id="newCategory" placeholder="New category">
-  <button onclick="addCategory()">Add</button>
-  <div id="catList"></div>
-  </div>
-
-  <div class="card">
-  <h2>Add Transaction</h2>
-
-  <select id="walletSelect"></select>
-
-  <select id="type">
-  <option value="income">Income</option>
-  <option value="expense">Expense</option>
-  </select>
-
-  <select id="category"></select>
-
-  <input id="amount" type="number" placeholder="Amount">
-
-  <select id="currency">
-  <option value="PHP">PHP</option>
-  <option value="USD">USD</option>
-  </select>
-
-  <button onclick="saveTransaction()">Save</button>
-  </div>
-  `;
-
-  const walletSelect=document.getElementById("walletSelect");
-  const categorySelect=document.getElementById("category");
-
-
-  // LOAD WALLETS
-  onSnapshot(collection(db,"users",user.uid,"wallets"), snap=>{
-    walletSelect.innerHTML="";
-    let total=0;
-    const list=document.getElementById("walletList");
-    list.innerHTML="";
-
-    snap.forEach(d=>{
-      const data=d.data();
-      total+=data.balance||0;
-
-      walletSelect.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
-      list.innerHTML+=`
-      <div class="wallet-item">
-        ${d.id}: ₱${(data.balance||0).toFixed(2)}
-        <button onclick="deleteWallet('${d.id}')">X</button>
-      </div>`;
-    });
-
-    document.getElementById("total").innerText="₱"+total.toFixed(2);
-  });
-
-
-  // LOAD CATEGORIES
-  onSnapshot(collection(db,"users",user.uid,"categories"), snap=>{
-    categorySelect.innerHTML="";
-    const list=document.getElementById("catList");
-    list.innerHTML="";
-    snap.forEach(d=>{
-      categorySelect.innerHTML+=`<option value="${d.id}">${d.id}</option>`;
-      list.innerHTML+=`${d.id} <button onclick="deleteCategory('${d.id}')">X</button><br>`;
-    });
-  });
-
-
-  // ACTIONS
-  window.addWallet=async()=>{
-    let name=newWallet.value;
-    let bal=parseFloat(startBalance.value)||0;
-    if(!name) return;
-    await setDoc(doc(db,"users",user.uid,"wallets",name),{balance:bal});
-    newWallet.value=""; startBalance.value="";
-  };
-
-  window.deleteWallet=async(id)=>{
-    await deleteDoc(doc(db,"users",user.uid,"wallets",id));
-  };
-
-  window.addCategory=async()=>{
-    let name=newCategory.value;
-    if(!name) return;
-    await setDoc(doc(db,"users",user.uid,"categories",name),{});
-    newCategory.value="";
-  };
-
-  window.deleteCategory=async(id)=>{
-    await deleteDoc(doc(db,"users",user.uid,"categories",id));
-  };
-
-  window.saveTransaction=async()=>{
-    let wallet=walletSelect.value;
-    let type=document.getElementById("type").value;
-    let cat=categorySelect.value;
-    let amt=parseFloat(amount.value);
-    let curr=currency.value;
-    if(isNaN(amt)) return;
-    if(curr==="USD") amt*=USD_RATE;
-
-    const ref=doc(db,"users",user.uid,"wallets",wallet);
-    const snap=await getDoc(ref);
-    let bal=snap.data().balance||0;
-    bal= type==="income"? bal+amt : bal-amt;
-    await updateDoc(ref,{balance:bal});
-
-    await addDoc(collection(db,"users",user.uid,"transactions"),{
-      wallet,type,category:cat,amount:amt,date:new Date()
-    });
-
-    amount.value="";
-  };
-}
+onAuthStateChanged(auth,(user)=>{
+  if(!user){
+    window.location="login.html";
+    return;
+  }
+  currentUser=user;
+  loadWallets();
+});
 
 window.logout=()=>signOut(auth);
 
+window.addWallet = async ()=>{
+  let name=document.getElementById("walletName").value;
+  let bal=parseFloat(document.getElementById("walletBalance").value);
 
-// ================= SESSION =================
-onAuthStateChanged(auth,user=>{
-  if(user) loadApp(user);
-  else{
-    app.style.display="none";
-    showAuth();
-  }
-});
+  if(!name) return;
+  if(isNaN(bal)) bal=0;
+
+  await addDoc(collection(db,"users",currentUser.uid,"wallets"),{
+    name,
+    balance:bal
+  });
+
+  walletName.value="";
+  walletBalance.value="";
+};
+
+function loadWallets(){
+  const list=document.getElementById("walletList");
+
+  onSnapshot(collection(db,"users",currentUser.uid,"wallets"),(snap)=>{
+    list.innerHTML="";
+    let total=0;
+
+    snap.forEach(docu=>{
+      const w=docu.data();
+      total+=w.balance||0;
+
+      let div=document.createElement("div");
+      div.className="wallet";
+      div.innerHTML=`
+        <span>${w.name} — ₱${(w.balance||0).toFixed(2)}</span>
+        <button data-id="${docu.id}">Delete</button>
+      `;
+
+      div.querySelector("button").onclick=async ()=>{
+        await deleteDoc(doc(db,"users",currentUser.uid,"wallets",docu.id));
+      };
+
+      list.appendChild(div);
+    });
+
+    document.getElementById("netWorth").innerText="₱"+total.toFixed(2);
+  });
+}
 </script>
 
 </body>
