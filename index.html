@@ -108,6 +108,14 @@ Total Balance: ₱<b id="totalBalance">0</b>
 <option value="USD">USD</option>
 </select>
 
+  <select id="repeat">
+  <option value="none">No repeat</option>
+  <option value="daily">Daily</option>
+  <option value="weekly">Weekly</option>
+  <option value="monthly">Monthly</option>
+</select>
+  
+
 <button onclick="saveTransaction()">Save</button>
 </div>
 
@@ -249,23 +257,40 @@ window.deleteCategory = async (id)=>{
 
 // ================= TRANSACTION =================
 window.saveTransaction = async ()=>{
-  let wallet=walletSelect.value;
-  let type=document.getElementById("type").value;
-  let cat=category.value;
-  let amt=parseFloat(amount.value);
-  let curr=currency.value;
+  let wallet = walletSelect.value;
+  let type   = document.getElementById("type").value;
+  let cat    = category.value;
+  let amt    = parseFloat(amount.value);
+  let curr   = currency.value;
+
+  // NEW
+  let txDate = document.getElementById("txDate").value;
+  let repeat = document.getElementById("repeat").value;
 
   if(isNaN(amt)) return;
+
+  // convert USD → PHP
   if(curr==="USD") amt*=USD_RATE;
 
-  const ref=doc(db,"wallets",wallet);
+  // if no date picked → today
+  const finalDate = txDate ? new Date(txDate) : new Date();
+
+  // update wallet balance immediately
+  const ref = doc(db,"wallets",wallet);
   const snap = await new Promise(r=>onSnapshot(ref,d=>r(d)));
-  let bal=snap.data().balance||0;
-  bal= type==="income"? bal+amt : bal-amt;
+  let bal = snap.data().balance||0;
+  bal = type==="income" ? bal+amt : bal-amt;
   await updateDoc(ref,{balance:bal});
 
+  // save transaction
   await addDoc(collection(db,"transactions"),{
-    wallet,type,category:cat,amount:amt,date:new Date()
+    wallet,
+    type,
+    category:cat,
+    amount:amt,
+    currency:curr,
+    date:finalDate,
+    repeat // none / daily / weekly / monthly
   });
 
   amount.value="";
