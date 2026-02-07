@@ -13,23 +13,28 @@ body{
   color:white;
 }
 .container{
-  max-width:1100px;
+  max-width:1200px;
   margin:auto;
-  padding:20px;
+  padding:15px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:10px;
 }
 .card{
   background:#1e293b;
-  padding:15px;
-  margin-bottom:15px;
+  padding:12px;
   border-radius:10px;
 }
-h2{margin-top:0}
+h2{margin:0 0 8px 0;font-size:16px;}
 input,select,button{
   width:100%;
-  padding:10px;
-  margin-top:8px;
-  border-radius:8px;
+  padding:8px;
+  margin-top:5px;
+  border-radius:6px;
   border:none;
+  font-size:13px;
 }
 button{
   background:#3b82f6;
@@ -38,22 +43,27 @@ button{
   cursor:pointer;
 }
 button:hover{opacity:0.9}
-.warning{color:#ff6b6b;font-weight:bold;margin-top:10px;}
-.success{color:#4ade80;font-weight:bold;margin-top:10px;}
+.walletCard{
+  background:#111827;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:6px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.small{
+  padding:3px 6px;
+  font-size:11px;
+}
 table{
   width:100%;
-  margin-top:10px;
   border-collapse:collapse;
+  font-size:12px;
 }
 th,td{
-  padding:8px;
   border-bottom:1px solid #334155;
-  font-size:14px;
-}
-.small-btn{
-  padding:5px 8px;
-  margin:2px;
-  font-size:12px;
+  padding:6px;
 }
 </style>
 </head>
@@ -64,16 +74,21 @@ th,td{
 <h1>💰 Finance Dashboard</h1>
 
 <div class="card">
-<h2>Total Balance (PHP)</h2>
-<h1>₱<span id="totalBalance">0</span></h1>
+Total Balance: ₱<b id="totalBalance">0</b>
 </div>
 
+<!-- WALLET CARDS -->
 <div class="card">
-<h2>Create Wallet</h2>
-<input id="walletName" placeholder="Wallet name">
+<h2>Wallets</h2>
+<div id="walletCards"></div>
+
+<input id="walletName" placeholder="New wallet">
 <button onclick="addWallet()">Add Wallet</button>
 </div>
 
+<div class="grid">
+
+<!-- TRANSACTION -->
 <div class="card">
 <h2>Add Transaction</h2>
 
@@ -84,13 +99,7 @@ th,td{
 <option value="expense">Expense</option>
 </select>
 
-<select id="category">
-<option>Food</option>
-<option>Rent</option>
-<option>Transport</option>
-<option>Entertainment</option>
-<option>Other</option>
-</select>
+<select id="category"></select>
 
 <input type="number" id="amount" placeholder="Amount">
 
@@ -100,72 +109,47 @@ th,td{
 </select>
 
 <button onclick="saveTransaction()">Save</button>
-<div id="budgetWarning" class="warning"></div>
 </div>
 
+<!-- TRANSFER -->
 <div class="card">
-<h2>Transfer Between Wallets</h2>
-
+<h2>Transfer</h2>
 <select id="fromWallet"></select>
 <select id="toWallet"></select>
 <input type="number" id="transferAmount" placeholder="Amount PHP">
-
-<button onclick="transfer()">Transfer</button>
+<button onclick="transfer()">Move</button>
 </div>
 
+<!-- CATEGORY -->
 <div class="card">
-<h2>Set Monthly Budget</h2>
-
-<select id="budgetCategory">
-<option>Food</option>
-<option>Rent</option>
-<option>Transport</option>
-<option>Entertainment</option>
-<option>Other</option>
-</select>
-
-<input type="number" id="budgetAmount" placeholder="Budget PHP">
-<button onclick="saveBudget()">Save Budget</button>
-<div id="budgetSaved" class="success"></div>
+<h2>Categories</h2>
+<div id="catList"></div>
+<input id="newCategory" placeholder="New category">
+<button onclick="addCategory()">Add</button>
 </div>
 
+</div>
+
+<!-- HISTORY -->
 <div class="card">
-<h2>Transactions History</h2>
-
-<select id="filterWallet">
-<option value="all">All Wallets</option>
-</select>
-
+<h2>History</h2>
 <table>
 <thead>
 <tr>
-<th>Date</th>
-<th>Wallet</th>
-<th>Type</th>
-<th>Category</th>
-<th>Amount</th>
-<th>Actions</th>
+<th>Date</th><th>Wallet</th><th>Type</th><th>Category</th><th>Amount</th><th></th>
 </tr>
 </thead>
 <tbody id="txTable"></tbody>
 </table>
-
-</div>
-
-<div class="card">
-<h2>Spending by Category (This Month)</h2>
-<canvas id="chart"></canvas>
 </div>
 
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, doc,
-  setDoc, updateDoc, deleteDoc
+  updateDoc, deleteDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -182,60 +166,102 @@ const db = getFirestore(app);
 
 const USD_RATE = 56;
 
-let walletsMap = {};
+let walletsMap={};
 
 
 // ================= WALLETS =================
 onSnapshot(collection(db,"wallets"), snap=>{
-  const select = walletSelect;
-  const from = fromWallet;
-  const to = toWallet;
-  const filter = filterWallet;
-
-  select.innerHTML = from.innerHTML = to.innerHTML = "";
-  filter.innerHTML = `<option value="all">All Wallets</option>`;
+  walletSelect.innerHTML = fromWallet.innerHTML = toWallet.innerHTML="";
+  walletCards.innerHTML="";
   walletsMap={};
 
-  snap.forEach(docu=>{
-    const w = docu.data();
-    walletsMap[docu.id]=w.name;
-    select.innerHTML += `<option value="${docu.id}">${w.name}</option>`;
-    from.innerHTML += `<option value="${docu.id}">${w.name}</option>`;
-    to.innerHTML = from.innerHTML;
-    filter.innerHTML += `<option value="${docu.id}">${w.name}</option>`;
-  });
-});
-
-onSnapshot(collection(db,"wallets"), snap=>{
   let total=0;
-  snap.forEach(d=> total+= (d.data().balance||0));
-  totalBalance.innerText = total.toFixed(2);
+
+  snap.forEach(d=>{
+    const w=d.data();
+    walletsMap[d.id]=w.name;
+    total+=w.balance||0;
+
+    walletSelect.innerHTML+=`<option value="${d.id}">${w.name}</option>`;
+    fromWallet.innerHTML+=`<option value="${d.id}">${w.name}</option>`;
+    toWallet.innerHTML=fromWallet.innerHTML;
+
+    walletCards.innerHTML+=`
+      <div class="walletCard">
+        <div>
+          <b>${w.name}</b><br>
+          ₱${(w.balance||0).toFixed(2)}
+        </div>
+        <button class="small" onclick="deleteWallet('${d.id}')">❌</button>
+      </div>
+    `;
+  });
+
+  totalBalance.innerText=total.toFixed(2);
 });
 
 window.addWallet = async ()=>{
-  const name = walletName.value.trim();
+  const name=walletName.value.trim();
   if(!name) return;
-  await addDoc(collection(db,"wallets"), {name,balance:0});
+  await addDoc(collection(db,"wallets"),{name,balance:0});
   walletName.value="";
+};
+
+window.deleteWallet = async (id)=>{
+  if(!confirm("Delete this wallet?")) return;
+  await deleteDoc(doc(db,"wallets",id));
+};
+
+
+// ================= CATEGORIES =================
+onSnapshot(collection(db,"categories"), snap=>{
+  category.innerHTML="";
+  catList.innerHTML="";
+  snap.forEach(d=>{
+    const c=d.data().name;
+    category.innerHTML+=`<option>${c}</option>`;
+    catList.innerHTML+=`
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        ${c}
+        <button class="small" onclick="deleteCategory('${d.id}')">❌</button>
+      </div>`;
+  });
+});
+
+// default if empty
+setDoc(doc(db,"categories","Food"),{name:"Food"});
+setDoc(doc(db,"categories","Rent"),{name:"Rent"});
+setDoc(doc(db,"categories","Transport"),{name:"Transport"});
+setDoc(doc(db,"categories","Entertainment"),{name:"Entertainment"});
+setDoc(doc(db,"categories","Other"),{name:"Other"});
+
+window.addCategory = async ()=>{
+  const name=newCategory.value.trim();
+  if(!name) return;
+  await setDoc(doc(db,"categories",name),{name});
+  newCategory.value="";
+};
+
+window.deleteCategory = async (id)=>{
+  await deleteDoc(doc(db,"categories",id));
 };
 
 
 // ================= TRANSACTION =================
 window.saveTransaction = async ()=>{
-  let wallet = walletSelect.value;
-  let type = document.getElementById("type").value;
-  let cat = category.value;
-  let amt = parseFloat(amount.value);
-  let curr = currency.value;
+  let wallet=walletSelect.value;
+  let type=document.getElementById("type").value;
+  let cat=category.value;
+  let amt=parseFloat(amount.value);
+  let curr=currency.value;
 
   if(isNaN(amt)) return;
   if(curr==="USD") amt*=USD_RATE;
 
-  const ref = doc(db,"wallets",wallet);
-
+  const ref=doc(db,"wallets",wallet);
   const snap = await new Promise(r=>onSnapshot(ref,d=>r(d)));
-  let bal = snap.data().balance||0;
-  bal = type==="income"? bal+amt : bal-amt;
+  let bal=snap.data().balance||0;
+  bal= type==="income"? bal+amt : bal-amt;
   await updateDoc(ref,{balance:bal});
 
   await addDoc(collection(db,"transactions"),{
@@ -243,118 +269,49 @@ window.saveTransaction = async ()=>{
   });
 
   amount.value="";
-  checkBudget(cat);
 };
 
 
 // ================= TRANSFER =================
 window.transfer = async ()=>{
-  const from = fromWallet.value;
-  const to = toWallet.value;
-  const amt = parseFloat(transferAmount.value);
-  if(isNaN(amt) || from===to) return;
+  const from=fromWallet.value;
+  const to=toWallet.value;
+  const amt=parseFloat(transferAmount.value);
+  if(isNaN(amt)||from===to) return;
 
-  const refFrom = doc(db,"wallets",from);
-  const refTo = doc(db,"wallets",to);
+  const sFrom = await new Promise(r=>onSnapshot(doc(db,"wallets",from),d=>r(d)));
+  const sTo = await new Promise(r=>onSnapshot(doc(db,"wallets",to),d=>r(d)));
 
-  const sFrom = await new Promise(r=>onSnapshot(refFrom,d=>r(d)));
-  const sTo = await new Promise(r=>onSnapshot(refTo,d=>r(d)));
-
-  await updateDoc(refFrom,{balance:(sFrom.data().balance||0)-amt});
-  await updateDoc(refTo,{balance:(sTo.data().balance||0)+amt});
+  await updateDoc(doc(db,"wallets",from),{balance:(sFrom.data().balance||0)-amt});
+  await updateDoc(doc(db,"wallets",to),{balance:(sTo.data().balance||0)+amt});
 
   transferAmount.value="";
 };
 
 
-// ================= BUDGET =================
-window.saveBudget = async ()=>{
-  const cat = budgetCategory.value;
-  const amt = parseFloat(budgetAmount.value);
-  if(isNaN(amt)) return;
-  await setDoc(doc(db,"budgets",cat),{amount:amt});
-  budgetSaved.innerText="Budget saved!";
-  setTimeout(()=>budgetSaved.innerText="",2000);
-};
-
-async function checkBudget(cat){
-  const month = new Date().getMonth();
-  let spent=0;
-
-  const txSnap = await new Promise(r=>onSnapshot(collection(db,"transactions"),s=>r(s)));
-  txSnap.forEach(t=>{
-    const data=t.data();
-    const d=new Date(data.date.seconds*1000);
-    if(data.category===cat && data.type==="expense" && d.getMonth()===month)
-      spent+=data.amount;
-  });
-
-  const b = await new Promise(r=>onSnapshot(doc(db,"budgets",cat),d=>r(d)));
-  if(!b.exists()) return;
-  const limit=b.data().amount;
-  budgetWarning.innerText = spent>limit ? `⚠ Overspent in ${cat}!` : "";
-}
-
-
-
 // ================= HISTORY =================
-let chart;
-
 onSnapshot(collection(db,"transactions"), snap=>{
-  const filter = filterWallet.value;
   txTable.innerHTML="";
-  const month = new Date().getMonth();
-  let categorySum={};
-
   snap.forEach(docu=>{
-    const t = docu.data();
-    if(filter!=="all" && t.wallet!==filter) return;
+    const t=docu.data();
+    const date=new Date(t.date.seconds*1000);
 
-    const date = new Date(t.date.seconds*1000);
-    const walletName = walletsMap[t.wallet]||"";
-
-    txTable.innerHTML += `
+    txTable.innerHTML+=`
       <tr>
         <td>${date.toLocaleDateString()}</td>
-        <td>${walletName}</td>
+        <td>${walletsMap[t.wallet]||""}</td>
         <td>${t.type}</td>
         <td>${t.category}</td>
         <td>₱${t.amount.toFixed(2)}</td>
-        <td>
-          <button class="small-btn" onclick="removeTx('${docu.id}')">❌</button>
-        </td>
+        <td><button class="small" onclick="removeTx('${docu.id}')">❌</button></td>
       </tr>
     `;
-
-    if(t.type==="expense" && date.getMonth()===month){
-      categorySum[t.category]=(categorySum[t.category]||0)+t.amount;
-    }
   });
-
-  drawChart(categorySum);
 });
 
-window.removeTx = async (id)=>{
+window.removeTx = async(id)=>{
   await deleteDoc(doc(db,"transactions",id));
 };
-
-filterWallet.onchange = ()=>onSnapshot(collection(db,"transactions"),()=>{});
-
-
-// ================= CHART =================
-function drawChart(data){
-  const ctx = document.getElementById("chart");
-
-  if(chart) chart.destroy();
-
-  chart = new Chart(ctx,{
-    type:"pie",
-    data:{
-      labels:Object.keys(data),
-      datasets:[{data:Object.values(data)}]
-    }
-  });
-}
 
 </script>
 </body>
