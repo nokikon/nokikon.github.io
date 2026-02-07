@@ -3,373 +3,248 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Finance Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Wallet Tracker</title>
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:Arial}
-body{background:#f0f2f5;padding:20px}
-h1{text-align:center;margin-bottom:20px}
-.container{max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:20px}
-.card{background:#fff;padding:20px;border-radius:10px;box-shadow:0 3px 8px rgba(0,0,0,.1)}
-input,select{padding:8px;border-radius:6px;border:1px solid #ccc;margin:4px}
-button{padding:8px 12px;border:none;border-radius:6px;background:#1877f2;color:#fff;cursor:pointer}
-button:hover{background:#145dbf}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
-.networth{text-align:center;font-size:1.6rem;font-weight:bold;color:#1877f2}
-.small{font-size:.85rem;color:#666}
-.delete-btn{background:#ff4b5c}
-.delete-btn:hover{background:#c0392b}
-.warn{color:red;font-weight:bold;margin-top:10px}
+body{
+    font-family: Arial, sans-serif;
+    background:#0f172a;
+    color:white;
+    margin:0;
+    padding:20px;
+}
+h1,h2{margin:10px 0;}
+.card{
+    background:#1e293b;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:15px;
+}
+input,select,button{
+    padding:10px;
+    margin:5px 0;
+    width:100%;
+    border-radius:8px;
+    border:none;
+}
+button{
+    background:#3b82f6;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+}
+button:hover{background:#2563eb;}
+.warning{
+    background:#dc2626;
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+}
+.small{font-size:12px;opacity:0.8;}
 </style>
 </head>
 
 <body>
 
-<h1>My Finance Dashboard</h1>
-
-<div class="container">
+<h1>💰 Wallet Tracker</h1>
 
 <div class="card">
-  <div class="networth">Total Net Worth in PHP: ₱<span id="networth">0</span></div>
-  <div class="small">USD → PHP rate:
-    <input id="rate" type="number" value="56" style="width:90px">
-  </div>
-</div>
-
-<!-- ACCOUNTS -->
-<div class="card">
-  <h2>Add Account</h2>
-  <input id="accountName" placeholder="Account name">
-  <input id="accountBalance" type="number" placeholder="Initial balance">
-  <select id="accountCurrency">
-    <option value="PHP">PHP</option>
-    <option value="USD">USD</option>
-  </select>
-  <button onclick="addAccount()">Add</button>
-
-  <table>
-    <thead><tr><th>Name</th><th>Currency</th><th>Balance</th></tr></thead>
-    <tbody id="accountsBody"></tbody>
-  </table>
-</div>
-
-<!-- TRANSACTION -->
-<div class="card">
-  <h2>Add Transaction</h2>
-
-  <select id="transactionAccount"></select>
-
-  <select id="transactionType">
-    <option value="income">Income</option>
-    <option value="expense">Expense</option>
-  </select>
-
-  <select id="transactionCategory">
-    <option>Food</option>
-    <option>Rent</option>
-    <option>Investment</option>
-    <option>Entertainment</option>
-    <option>Other</option>
-  </select>
-
-  <input id="transactionAmount" type="number" placeholder="Amount">
-
-  <select id="transactionCurrency">
-    <option value="PHP">PHP</option>
-    <option value="USD">USD</option>
-  </select>
-
-  <button onclick="addTransaction()">Add</button>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Account</th><th>Type</th><th>Category</th>
-        <th>Amount</th><th></th>
-      </tr>
-    </thead>
-    <tbody id="transactionsBody"></tbody>
-  </table>
-</div>
-
-<!-- TRANSFER -->
-<div class="card">
-  <h2>Transfer Between Accounts</h2>
-  From <select id="fromAcc"></select>
-  To <select id="toAcc"></select>
-  <input id="transferAmount" type="number" placeholder="Amount">
-  <select id="transferCurrency">
-    <option value="PHP">PHP</option>
-    <option value="USD">USD</option>
-  </select>
-  <button onclick="transfer()">Transfer</button>
-</div>
-
-<!-- BUDGET -->
-<div class="card">
-  <h2>Monthly Budget</h2>
-  <select id="budgetCategory">
-    <option>Food</option>
-    <option>Rent</option>
-    <option>Investment</option>
-    <option>Entertainment</option>
-    <option>Other</option>
-  </select>
-  <input id="budgetAmount" type="number" placeholder="PHP">
-  <button onclick="setBudget()">Save</button>
-  <div id="budgetWarn" class="warn"></div>
-</div>
-
-<!-- CHARTS -->
-<div class="card">
-  <h2>Income vs Expense</h2>
-  <canvas id="lineChart"></canvas>
+<h2>Total Balance (PHP)</h2>
+<h1 id="total">₱0</h1>
+<div id="budgetWarning"></div>
 </div>
 
 <div class="card">
-  <h2>Expenses by Category</h2>
-  <canvas id="pieChart"></canvas>
+<h2>Add Transaction</h2>
+
+<select id="wallet"></select>
+
+<select id="type">
+<option value="income">Income</option>
+<option value="expense">Expense</option>
+</select>
+
+<input type="number" id="amount" placeholder="Amount">
+
+<select id="currency">
+<option value="PHP">PHP</option>
+<option value="USD">USD</option>
+</select>
+
+<button onclick="addTransaction()">Save</button>
+<div class="small">USD will be converted to PHP automatically</div>
 </div>
 
+<div class="card">
+<h2>Transfer Between Wallets</h2>
+
+<select id="fromWallet"></select>
+<select id="toWallet"></select>
+<input type="number" id="transferAmount" placeholder="Amount PHP">
+
+<button onclick="transfer()">Transfer</button>
 </div>
 
-<script>
-const PASSWORD="2761";
-if(prompt("Enter password")!==PASSWORD){
-  document.body.innerHTML="<h2 style='text-align:center;margin-top:50px'>Access Denied</h2>";
+<div class="card">
+<h2>Create Wallet</h2>
+<input type="text" id="newWallet" placeholder="Wallet name">
+<button onclick="createWallet()">Add Wallet</button>
+</div>
+
+<div class="card">
+<h2>History</h2>
+<div id="history"></div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+onSnapshot,
+doc,
+setDoc,
+updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC5Iysfx-S3N1HyCqxr_JCXIhRa2Ds-ELY",
+  authDomain: "financial-management-too-88cd2.firebaseapp.com",
+  projectId: "financial-management-too-88cd2",
+  storageBucket: "financial-management-too-88cd2.firebasestorage.app",
+  messagingSenderId: "800320121078",
+  appId: "1:800320121078:web:419fc17ecc4323a90564d7",
+  measurementId: "G-PVP48DB0K7"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const USD_RATE = 56;   // change anytime
+const BUDGET_LIMIT = 50000; // warning
+
+const walletSelect = document.getElementById("wallet");
+const fromWallet = document.getElementById("fromWallet");
+const toWallet = document.getElementById("toWallet");
+
+function formatPHP(v){
+return "₱" + v.toLocaleString();
 }
 
-/* ---------------- STORAGE ---------------- */
-let accounts=JSON.parse(localStorage.getItem("accounts")||"[]");
-let transactions=JSON.parse(localStorage.getItem("transactions")||"[]");
-let budgets=JSON.parse(localStorage.getItem("budgets")||"{}");
-
-const peso=v=>v.toLocaleString(undefined,{minimumFractionDigits:2});
-
-/* ---------------- ACCOUNT ---------------- */
-function addAccount(){
-  const name=accountName.value.trim();
-  const balance=parseFloat(accountBalance.value);
-  const currency=accountCurrency.value;
-
-  if(!name||isNaN(balance)) return alert("Invalid");
-  if(accounts.find(a=>a.name===name)) return alert("Duplicate");
-
-  accounts.push({name,balance,currency});
-  save(); render();
-  accountName.value=""; accountBalance.value="";
+async function createWallet(){
+const name = document.getElementById("newWallet").value;
+if(!name) return;
+await setDoc(doc(db,"wallets",name),{balance:0});
+document.getElementById("newWallet").value="";
 }
 
-/* ---------------- TRANSACTION ---------------- */
-function addTransaction(){
-  const accName=transactionAccount.value;
-  const type=transactionType.value;
-  const category=transactionCategory.value;
-  const amount=parseFloat(transactionAmount.value);
-  const currency=transactionCurrency.value;
-  const rate=parseFloat(document.getElementById("rate").value);
+window.createWallet = createWallet;
 
-  if(!accName||isNaN(amount)) return;
+function loadWallets(){
+onSnapshot(collection(db,"wallets"), snap=>{
+walletSelect.innerHTML="";
+fromWallet.innerHTML="";
+toWallet.innerHTML="";
+let total=0;
 
-  const acc=accounts.find(a=>a.name===accName);
-  if(!acc) return;
+snap.forEach(d=>{
+const data=d.data();
+total+=data.balance;
 
-  let final=amount;
-  if(currency==="USD" && acc.currency==="PHP") final=amount*rate;
-  if(currency==="PHP" && acc.currency==="USD") final=amount/rate;
+const opt=document.createElement("option");
+opt.value=d.id;
+opt.text=d.id;
+walletSelect.appendChild(opt);
 
-  if(type==="expense") acc.balance-=final;
-  else acc.balance+=final;
+const opt2=opt.cloneNode(true);
+fromWallet.appendChild(opt2);
 
-  transactions.push({
-    id:Date.now(),
-    account:accName,type,category,
-    amount,currency,rate,
-    date:new Date()
-  });
+const opt3=opt.cloneNode(true);
+toWallet.appendChild(opt3);
+});
 
-  save(); render();
-  checkBudget();
-  transactionAmount.value="";
+document.getElementById("total").innerText=formatPHP(total);
+
+if(total<0 || total>BUDGET_LIMIT){
+document.getElementById("budgetWarning").innerHTML=
+'<div class="warning">⚠ Budget attention required</div>';
+}else{
+document.getElementById("budgetWarning").innerHTML="";
+}
+});
 }
 
-function deleteTx(id){
-  transactions=transactions.filter(t=>t.id!==id);
-  rebuildBalances();
-  save(); render();
+loadWallets();
+
+async function addTransaction(){
+const wallet=walletSelect.value;
+const type=document.getElementById("type").value;
+let amount=parseFloat(document.getElementById("amount").value);
+const currency=document.getElementById("currency").value;
+
+if(!wallet || !amount) return;
+
+if(currency==="USD") amount*=USD_RATE;
+if(type==="expense") amount*=-1;
+
+const ref=doc(db,"wallets",wallet);
+onSnapshot(ref, async snap=>{
+const current=snap.data().balance || 0;
+await updateDoc(ref,{balance:current+amount});
+},{once:true});
+
+await addDoc(collection(db,"history"),{
+wallet,type,amount,date:new Date()
+});
+
+document.getElementById("amount").value="";
 }
 
-/* ---------------- TRANSFER ---------------- */
-function transfer(){
-  const from=fromAcc.value;
-  const to=toAcc.value;
-  const amount=parseFloat(transferAmount.value);
-  const currency=transferCurrency.value;
-  const rate=parseFloat(document.getElementById("rate").value);
+window.addTransaction = addTransaction;
 
-  if(from===to||isNaN(amount)) return;
+async function transfer(){
+const from=fromWallet.value;
+const to=toWallet.value;
+let amount=parseFloat(document.getElementById("transferAmount").value);
+if(!from||!to||!amount||from===to) return;
 
-  const aFrom=accounts.find(a=>a.name===from);
-  const aTo=accounts.find(a=>a.name===to);
-  if(!aFrom||!aTo) return;
+const fromRef=doc(db,"wallets",from);
+const toRef=doc(db,"wallets",to);
 
-  let minus=amount, plus=amount;
+onSnapshot(fromRef, async snap=>{
+const bal=snap.data().balance||0;
+await updateDoc(fromRef,{balance:bal-amount});
+},{once:true});
 
-  if(currency==="USD" && aFrom.currency==="PHP") minus=amount*rate;
-  if(currency==="PHP" && aFrom.currency==="USD") minus=amount/rate;
+onSnapshot(toRef, async snap=>{
+const bal=snap.data().balance||0;
+await updateDoc(toRef,{balance:bal+amount});
+},{once:true});
 
-  if(currency==="USD" && aTo.currency==="PHP") plus=amount*rate;
-  if(currency==="PHP" && aTo.currency==="USD") plus=amount/rate;
+await addDoc(collection(db,"history"),{
+wallet:from+" → "+to,
+type:"transfer",
+amount,date:new Date()
+});
 
-  aFrom.balance-=minus;
-  aTo.balance+=plus;
-
-  save(); render();
+document.getElementById("transferAmount").value="";
 }
 
-/* ---------------- BUDGET ---------------- */
-function setBudget(){
-  const cat=budgetCategory.value;
-  const amt=parseFloat(budgetAmount.value);
-  if(isNaN(amt)) return;
-  budgets[cat]=amt;
-  localStorage.setItem("budgets",JSON.stringify(budgets));
-  alert("Saved");
-}
+window.transfer = transfer;
 
-function checkBudget(){
-  const rate=parseFloat(document.getElementById("rate").value);
-  const now=new Date();
-  const m=now.getMonth(), y=now.getFullYear();
-  const spent={};
+onSnapshot(collection(db,"history"), snap=>{
+const div=document.getElementById("history");
+div.innerHTML="";
+snap.forEach(d=>{
+const h=d.data();
+const el=document.createElement("div");
+el.innerText=`${h.wallet} | ${h.type} | ${formatPHP(h.amount)}`;
+div.appendChild(el);
+});
+});
 
-  transactions.forEach(t=>{
-    const d=new Date(t.date);
-    if(d.getMonth()!==m||d.getFullYear()!==y) return;
-    if(t.type!=="expense") return;
-
-    let amt=t.amount;
-    if(t.currency==="USD") amt*=rate;
-    spent[t.category]=(spent[t.category]||0)+amt;
-  });
-
-  budgetWarn.innerHTML="";
-  Object.keys(budgets).forEach(c=>{
-    if(spent[c]>budgets[c]){
-      budgetWarn.innerHTML+=`⚠ ${c} exceeded! `;
-    }
-  });
-}
-
-/* ---------------- REBUILD ---------------- */
-function rebuildBalances(){
-  accounts.forEach(a=>a.balance=0);
-  transactions.forEach(t=>{
-    const acc=accounts.find(a=>a.name===t.account);
-    if(!acc) return;
-    let amt=t.amount;
-    if(t.currency==="USD" && acc.currency==="PHP") amt*=t.rate;
-    if(t.currency==="PHP" && acc.currency==="USD") amt/=t.rate;
-    if(t.type==="expense") acc.balance-=amt;
-    else acc.balance+=amt;
-  });
-}
-
-/* ---------------- RENDER ---------------- */
-function render(){
-  accountsBody.innerHTML="";
-  transactionAccount.innerHTML="";
-  fromAcc.innerHTML="";
-  toAcc.innerHTML="";
-
-  accounts.forEach(a=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${a.name}</td><td>${a.currency}</td><td>${a.currency==="PHP"?"₱":"$"}${peso(a.balance)}</td>`;
-    accountsBody.appendChild(tr);
-
-    [transactionAccount,fromAcc,toAcc].forEach(sel=>{
-      const o=document.createElement("option");
-      o.value=a.name; o.textContent=a.name;
-      sel.appendChild(o);
-    });
-  });
-
-  transactionsBody.innerHTML="";
-  if(!transactions.length){
-    transactionsBody.innerHTML=`<tr><td colspan="5" class="small">No transactions</td></tr>`;
-  }
-
-  transactions.forEach(t=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
-      <td>${t.account}</td>
-      <td>${t.type}</td>
-      <td>${t.category}</td>
-      <td>${t.currency==="PHP"?"₱":"$"}${peso(t.amount)}</td>
-      <td><button class="delete-btn" onclick="deleteTx(${t.id})">X</button></td>
-    `;
-    transactionsBody.appendChild(tr);
-  });
-
-  updateNetWorth();
-  updateCharts();
-}
-
-/* ---------------- NET WORTH PHP ---------------- */
-function updateNetWorth(){
-  const rate=parseFloat(document.getElementById("rate").value);
-  let total=0;
-  accounts.forEach(a=>{
-    if(a.currency==="PHP") total+=a.balance;
-    else total+=a.balance*rate;
-  });
-  networth.textContent=peso(total);
-}
-
-/* ---------------- CHARTS ---------------- */
-function updateCharts(){
-  const monthly={}, cat={};
-
-  transactions.forEach(t=>{
-    const m=new Date(t.date).toLocaleString('default',{month:'short',year:'numeric'});
-    monthly[m]=monthly[m]||{income:0,expense:0};
-    if(t.type==="income") monthly[m].income+=t.amount;
-    else{
-      monthly[m].expense+=t.amount;
-      cat[t.category]=(cat[t.category]||0)+t.amount;
-    }
-  });
-
-  const ctx1=lineChart.getContext("2d");
-  if(window.lc) lc.destroy();
-  window.lc=new Chart(ctx1,{
-    type:'line',
-    data:{
-      labels:Object.keys(monthly),
-      datasets:[
-        {label:"Income",data:Object.values(monthly).map(v=>v.income),borderColor:"green"},
-        {label:"Expense",data:Object.values(monthly).map(v=>v.expense),borderColor:"red"}
-      ]
-    }
-  });
-
-  const ctx2=pieChart.getContext("2d");
-  if(window.pc) pc.destroy();
-  window.pc=new Chart(ctx2,{
-    type:'pie',
-    data:{labels:Object.keys(cat),datasets:[{data:Object.values(cat)}]}
-  });
-}
-
-/* ---------------- SAVE ---------------- */
-function save(){
-  localStorage.setItem("accounts",JSON.stringify(accounts));
-  localStorage.setItem("transactions",JSON.stringify(transactions));
-}
-
-render();
 </script>
 
 </body>
