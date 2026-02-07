@@ -3,65 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wallet Tracker</title>
+<title>Cloud Wallet</title>
 
 <style>
 body{
-    font-family: Arial, sans-serif;
-    background:#0f172a;
-    color:white;
-    margin:0;
-    padding:20px;
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+  background:#0f172a;
+  color:white;
 }
-h1,h2{margin:10px 0;}
+.container{
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+}
 .card{
-    background:#1e293b;
-    padding:15px;
-    border-radius:10px;
-    margin-bottom:15px;
+  background:#1e293b;
+  padding:15px;
+  margin-bottom:15px;
+  border-radius:10px;
 }
+h2{margin-top:0}
 input,select,button{
-    padding:10px;
-    margin:5px 0;
-    width:100%;
-    border-radius:8px;
-    border:none;
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:8px;
+  border:none;
 }
 button{
-    background:#3b82f6;
-    color:white;
-    font-weight:bold;
-    cursor:pointer;
+  background:#3b82f6;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
 }
-button:hover{background:#2563eb;}
+button:hover{opacity:0.9}
 .warning{
-    background:#dc2626;
-    padding:10px;
-    border-radius:8px;
-    margin-top:10px;
+  color:#ff6b6b;
+  font-weight:bold;
+  margin-top:10px;
 }
-.small{font-size:12px;opacity:0.8;}
+.success{
+  color:#4ade80;
+  font-weight:bold;
+  margin-top:10px;
+}
 </style>
 </head>
 
 <body>
+<div class="container">
 
-<h1>💰 Wallet Tracker</h1>
+<h1>💰 Finance Dashboard</h1>
 
 <div class="card">
 <h2>Total Balance (PHP)</h2>
-<h1 id="total">₱0</h1>
-<div id="budgetWarning"></div>
+<h1>₱<span id="totalBalance">0</span></h1>
+</div>
+
+<div class="card">
+<h2>Create Wallet</h2>
+<input id="walletName" placeholder="Wallet name">
+<button onclick="addWallet()">Add Wallet</button>
 </div>
 
 <div class="card">
 <h2>Add Transaction</h2>
 
-<select id="wallet"></select>
+<select id="walletSelect"></select>
 
 <select id="type">
 <option value="income">Income</option>
 <option value="expense">Expense</option>
+</select>
+
+<select id="category">
+<option>Food</option>
+<option>Rent</option>
+<option>Transport</option>
+<option>Entertainment</option>
+<option>Other</option>
 </select>
 
 <input type="number" id="amount" placeholder="Amount">
@@ -71,8 +92,8 @@ button:hover{background:#2563eb;}
 <option value="USD">USD</option>
 </select>
 
-<button onclick="addTransaction()">Save</button>
-<div class="small">USD will be converted to PHP automatically</div>
+<button onclick="saveTransaction()">Save</button>
+<div id="budgetWarning" class="warning"></div>
 </div>
 
 <div class="card">
@@ -86,27 +107,28 @@ button:hover{background:#2563eb;}
 </div>
 
 <div class="card">
-<h2>Create Wallet</h2>
-<input type="text" id="newWallet" placeholder="Wallet name">
-<button onclick="createWallet()">Add Wallet</button>
+<h2>Set Monthly Budget</h2>
+
+<select id="budgetCategory">
+<option>Food</option>
+<option>Rent</option>
+<option>Transport</option>
+<option>Entertainment</option>
+<option>Other</option>
+</select>
+
+<input type="number" id="budgetAmount" placeholder="Budget PHP">
+<button onclick="saveBudget()">Save Budget</button>
+<div id="budgetSaved" class="success"></div>
 </div>
 
-<div class="card">
-<h2>History</h2>
-<div id="history"></div>
 </div>
 
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-getFirestore,
-collection,
-addDoc,
-onSnapshot,
-doc,
-setDoc,
-updateDoc
+  getFirestore, collection, addDoc, onSnapshot, doc, setDoc, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -115,137 +137,128 @@ const firebaseConfig = {
   projectId: "financial-management-too-88cd2",
   storageBucket: "financial-management-too-88cd2.firebasestorage.app",
   messagingSenderId: "800320121078",
-  appId: "1:800320121078:web:419fc17ecc4323a90564d7",
-  measurementId: "G-PVP48DB0K7"
+  appId: "1:800320121078:web:419fc17ecc4323a90564d7"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const USD_RATE = 56;   // change anytime
-const BUDGET_LIMIT = 50000; // warning
+const USD_RATE = 56; // you can change anytime
 
-const walletSelect = document.getElementById("wallet");
-const fromWallet = document.getElementById("fromWallet");
-const toWallet = document.getElementById("toWallet");
-
-function formatPHP(v){
-return "₱" + v.toLocaleString();
-}
-
-async function createWallet(){
-const name = document.getElementById("newWallet").value;
-if(!name) return;
-await setDoc(doc(db,"wallets",name),{balance:0});
-document.getElementById("newWallet").value="";
-}
-
-window.createWallet = createWallet;
-
-function loadWallets(){
+// ---------- LOAD WALLETS ----------
 onSnapshot(collection(db,"wallets"), snap=>{
-walletSelect.innerHTML="";
-fromWallet.innerHTML="";
-toWallet.innerHTML="";
-let total=0;
-
-snap.forEach(d=>{
-const data=d.data();
-total+=data.balance;
-
-const opt=document.createElement("option");
-opt.value=d.id;
-opt.text=d.id;
-walletSelect.appendChild(opt);
-
-const opt2=opt.cloneNode(true);
-fromWallet.appendChild(opt2);
-
-const opt3=opt.cloneNode(true);
-toWallet.appendChild(opt3);
+  const select = document.getElementById("walletSelect");
+  const from = document.getElementById("fromWallet");
+  const to = document.getElementById("toWallet");
+  select.innerHTML = from.innerHTML = to.innerHTML = "";
+  snap.forEach(docu=>{
+    const w = docu.data();
+    select.innerHTML += `<option value="${docu.id}">${w.name}</option>`;
+    from.innerHTML += `<option value="${docu.id}">${w.name}</option>`;
+    to.innerHTML = from.innerHTML;
+  });
 });
 
-document.getElementById("total").innerText=formatPHP(total);
+// ---------- TOTAL ----------
+onSnapshot(collection(db,"wallets"), snap=>{
+  let total=0;
+  snap.forEach(d=> total+= (d.data().balance||0));
+  document.getElementById("totalBalance").innerText = total.toFixed(2);
+});
 
-if(total<0 || total>BUDGET_LIMIT){
-document.getElementById("budgetWarning").innerHTML=
-'<div class="warning">⚠ Budget attention required</div>';
-}else{
-document.getElementById("budgetWarning").innerHTML="";
+// ---------- ADD WALLET ----------
+window.addWallet = async ()=>{
+  const name = walletName.value.trim();
+  if(!name) return;
+  await addDoc(collection(db,"wallets"), {name,balance:0});
+  walletName.value="";
+};
+
+// ---------- SAVE TRANSACTION ----------
+window.saveTransaction = async ()=>{
+  let wallet = walletSelect.value;
+  let type = typeEl.value;
+  let cat = category.value;
+  let amt = parseFloat(amount.value);
+  let curr = currency.value;
+
+  if(isNaN(amt)) return;
+
+  if(curr==="USD") amt*=USD_RATE;
+
+  const ref = doc(db,"wallets",wallet);
+
+  onSnapshot(ref, async d=>{
+    let bal = d.data().balance||0;
+    bal = type==="income"? bal+amt : bal-amt;
+    await updateDoc(ref,{balance:bal});
+  });
+
+  await addDoc(collection(db,"transactions"),{
+    wallet,type,category:cat,amount:amt,date:new Date()
+  });
+
+  amount.value="";
+  checkBudget(cat);
+};
+
+const typeEl = document.getElementById("type");
+
+// ---------- TRANSFER ----------
+window.transfer = async ()=>{
+  const from = fromWallet.value;
+  const to = toWallet.value;
+  const amt = parseFloat(transferAmount.value);
+  if(isNaN(amt) || from===to) return;
+
+  const refFrom = doc(db,"wallets",from);
+  const refTo = doc(db,"wallets",to);
+
+  onSnapshot(refFrom, async d=>{
+    await updateDoc(refFrom,{balance:(d.data().balance||0)-amt});
+  });
+  onSnapshot(refTo, async d=>{
+    await updateDoc(refTo,{balance:(d.data().balance||0)+amt});
+  });
+
+  transferAmount.value="";
+};
+
+// ---------- SAVE BUDGET ----------
+window.saveBudget = async ()=>{
+  const cat = budgetCategory.value;
+  const amt = parseFloat(budgetAmount.value);
+  if(isNaN(amt)) return;
+  await setDoc(doc(db,"budgets",cat),{amount:amt});
+  budgetSaved.innerText="Budget saved!";
+  setTimeout(()=>budgetSaved.innerText="",2000);
+};
+
+// ---------- CHECK BUDGET ----------
+async function checkBudget(cat){
+  const month = new Date().getMonth();
+  let spent=0;
+
+  onSnapshot(collection(db,"transactions"), snap=>{
+    snap.forEach(t=>{
+      const data=t.data();
+      const d=new Date(data.date.seconds*1000);
+      if(data.category===cat && data.type==="expense" && d.getMonth()===month)
+        spent+=data.amount;
+    });
+  });
+
+  onSnapshot(doc(db,"budgets",cat), d=>{
+    if(!d.exists()) return;
+    const limit=d.data().amount;
+    if(spent>limit){
+      budgetWarning.innerText=`⚠ Overspent in ${cat}!`;
+    }else{
+      budgetWarning.innerText="";
+    }
+  });
 }
-});
-}
-
-loadWallets();
-
-async function addTransaction(){
-const wallet=walletSelect.value;
-const type=document.getElementById("type").value;
-let amount=parseFloat(document.getElementById("amount").value);
-const currency=document.getElementById("currency").value;
-
-if(!wallet || !amount) return;
-
-if(currency==="USD") amount*=USD_RATE;
-if(type==="expense") amount*=-1;
-
-const ref=doc(db,"wallets",wallet);
-onSnapshot(ref, async snap=>{
-const current=snap.data().balance || 0;
-await updateDoc(ref,{balance:current+amount});
-},{once:true});
-
-await addDoc(collection(db,"history"),{
-wallet,type,amount,date:new Date()
-});
-
-document.getElementById("amount").value="";
-}
-
-window.addTransaction = addTransaction;
-
-async function transfer(){
-const from=fromWallet.value;
-const to=toWallet.value;
-let amount=parseFloat(document.getElementById("transferAmount").value);
-if(!from||!to||!amount||from===to) return;
-
-const fromRef=doc(db,"wallets",from);
-const toRef=doc(db,"wallets",to);
-
-onSnapshot(fromRef, async snap=>{
-const bal=snap.data().balance||0;
-await updateDoc(fromRef,{balance:bal-amount});
-},{once:true});
-
-onSnapshot(toRef, async snap=>{
-const bal=snap.data().balance||0;
-await updateDoc(toRef,{balance:bal+amount});
-},{once:true});
-
-await addDoc(collection(db,"history"),{
-wallet:from+" → "+to,
-type:"transfer",
-amount,date:new Date()
-});
-
-document.getElementById("transferAmount").value="";
-}
-
-window.transfer = transfer;
-
-onSnapshot(collection(db,"history"), snap=>{
-const div=document.getElementById("history");
-div.innerHTML="";
-snap.forEach(d=>{
-const h=d.data();
-const el=document.createElement("div");
-el.innerText=`${h.wallet} | ${h.type} | ${formatPHP(h.amount)}`;
-div.appendChild(el);
-});
-});
 
 </script>
-
 </body>
 </html>
