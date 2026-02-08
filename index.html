@@ -6,45 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
-body{
-  font-family:Arial,Helvetica,sans-serif;
-  background:#f4f6f8;
-  margin:0;
-}
-.header{
-  background:#1f2937;
-  color:white;
-  padding:15px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-.card{
-  background:white;
-  margin:15px;
-  padding:15px;
-  border-radius:10px;
-  box-shadow:0 2px 5px rgba(0,0,0,0.1);
-}
-button{
-  background:#2563eb;
-  color:white;
-  border:none;
-  padding:6px 10px;
-  border-radius:6px;
-  cursor:pointer;
-}
-input{
-  padding:6px;
-  margin-right:5px;
-}
-.wallet{
-  display:flex;
-  justify-content:space-between;
-  margin-top:8px;
-  border-bottom:1px solid #eee;
-  padding-bottom:5px;
-}
+body{font-family:Arial;background:#f4f6f8;margin:0}
+.header{background:#1f2937;color:white;padding:15px;display:flex;justify-content:space-between}
+.card{background:white;margin:15px;padding:15px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,0.1)}
+button{background:#2563eb;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+input,select{padding:6px;margin-right:5px}
+.wallet{display:flex;justify-content:space-between;margin-top:8px;border-bottom:1px solid #eee;padding-bottom:5px}
+.row{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 </style>
 </head>
 
@@ -60,14 +28,40 @@ input{
   <h2 id="netWorth">₱0</h2>
 </div>
 
+<!-- WALLETS -->
 <div class="card">
   <h3>Wallets</h3>
-
   <input id="walletName" placeholder="Wallet name">
   <input id="walletBalance" type="number" placeholder="Balance PHP">
   <button onclick="addWallet()">Add</button>
-
   <div id="walletList"></div>
+</div>
+
+<!-- TRANSACTIONS -->
+<div class="card">
+  <h3>Add Transaction</h3>
+
+  <div class="row">
+    <select id="walletSelect"></select>
+
+    <select id="type">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+
+    <input id="category" placeholder="Category">
+
+    <input type="number" id="amount" placeholder="Amount">
+
+    <select id="currency">
+      <option value="PHP">PHP</option>
+      <option value="USD">USD</option>
+    </select>
+
+    <button onclick="saveTransaction()">Save</button>
+  </div>
+
+  <small>USD will convert to PHP automatically</small>
 </div>
 
 <script type="module">
@@ -75,7 +69,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, onSnapshot,
-  doc, deleteDoc
+  doc, deleteDoc, updateDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -86,6 +80,8 @@ const firebaseConfig = {
   messagingSenderId: "800320121078",
   appId: "1:800320121078:web:419fc17ecc4323a90564d7"
 };
+
+const USD_RATE = 56; // change anytime
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -104,50 +100,93 @@ onAuthStateChanged(auth,(user)=>{
 
 window.logout=()=>signOut(auth);
 
+//
+// ADD WALLET
+//
 window.addWallet = async ()=>{
-  let name=document.getElementById("walletName").value;
-  let bal=parseFloat(document.getElementById("walletBalance").value);
-
+  let name=walletName.value;
+  let bal=parseFloat(walletBalance.value);
   if(!name) return;
   if(isNaN(bal)) bal=0;
 
-  await addDoc(collection(db,"users",currentUser.uid,"wallets"),{
-    name,
-    balance:bal
-  });
-
+  await addDoc(collection(db,"users",currentUser.uid,"wallets"),{name,balance:bal});
   walletName.value="";
   walletBalance.value="";
 };
 
+//
+// LOAD WALLETS + TOTAL + DROPDOWN
+//
 function loadWallets(){
   const list=document.getElementById("walletList");
+  const select=document.getElementById("walletSelect");
 
   onSnapshot(collection(db,"users",currentUser.uid,"wallets"),(snap)=>{
     list.innerHTML="";
+    select.innerHTML="";
     let total=0;
 
     snap.forEach(docu=>{
       const w=docu.data();
       total+=w.balance||0;
 
+      // list
       let div=document.createElement("div");
       div.className="wallet";
       div.innerHTML=`
         <span>${w.name} — ₱${(w.balance||0).toFixed(2)}</span>
         <button data-id="${docu.id}">Delete</button>
       `;
-
       div.querySelector("button").onclick=async ()=>{
         await deleteDoc(doc(db,"users",currentUser.uid,"wallets",docu.id));
       };
-
       list.appendChild(div);
+
+      // dropdown
+      let opt=document.createElement("option");
+      opt.value=docu.id;
+      opt.textContent=w.name;
+      select.appendChild(opt);
     });
 
-    document.getElementById("netWorth").innerText="₱"+total.toFixed(2);
+    netWorth.innerText="₱"+total.toFixed(2);
   });
 }
+
+//
+// SAVE TRANSACTION
+//
+window.saveTransaction = async ()=>{
+  let walletId=walletSelect.value;
+  let type=type.value;
+  let cat=category.value;
+  let amt=parseFloat(amount.value);
+  let curr=currency.value;
+
+  if(!walletId) return;
+  if(isNaN(amt)) return;
+
+  if(curr==="USD") amt*=USD_RATE;
+
+  const ref=doc(db,"users",currentUser.uid,"wallets",walletId);
+  const snap=await getDoc(ref);
+  let bal=snap.data().balance||0;
+
+  bal= type==="income" ? bal+amt : bal-amt;
+
+  await updateDoc(ref,{balance:bal});
+
+  await addDoc(collection(db,"users",currentUser.uid,"transactions"),{
+    walletId,
+    type,
+    category:cat||"General",
+    amount:amt,
+    created:new Date()
+  });
+
+  amount.value="";
+  category.value="";
+};
 </script>
 
 </body>
